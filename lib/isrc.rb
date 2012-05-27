@@ -60,18 +60,41 @@ module ISRC
         agent.log.error "The Stuff #{e.page.body}"
       end
 
+      # creates an array representation of the table:
+      #   artist, title, isrc, released, time
       isrc_html = Nokogiri::HTML(isrc_search.body)
       @matches = isrc_html.css("table[id='T400335881332330323192:ars_form:searchResultsTable'] tbody tr").map { |m| m.css('td').map &:text }
     end
 
     def match(seconds = nil)
-      return @matches.first[2] if @matches.count == 1
-      
+      return {
+        :artist => @matches.first[0],
+        :title => @matches.first[1],
+        :isrc => @matches.first[2],
+        :delta => 0
+      } if @matches.count == 1
+
       if seconds
-        
+        # if string, convert to integer. Format '5:08'
+        seconds = timestring_to_integer(seconds) if seconds.class == String
+        match_quality = []
+
+        @matches.each do |song_match|
+          song_seconds = timestring_to_integer(song_match[4].match(/([0-9]:[0-9]{2})/)[1])
+          match_quality << { :delta => (song_seconds - seconds).abs, :match => song_match }
+        end
+
+        best_match = match_quality.min_by { |m| m[:delta] }
+
+        return {
+          :artist => best_match[:match][0],
+          :title => best_match[:match][1],
+          :isrc => best_match[:match][2],
+          :delta => best_match[:delta]
+        }
       end
 
-      @matches.first[2]
+      nil
     end
 
     protected
@@ -82,6 +105,11 @@ module ISRC
     def extract_ice_session(body)
       session_info = body.match(/history-frame:([^:]+):([0-9]+)/)
       [session_info[1], session_info[2].to_i]
+    end
+
+    def timestring_to_integer(time_string)
+      minutes, seconds = time_string.split(':')
+      minutes.to_i * 60 + seconds.to_i
     end
 
   end

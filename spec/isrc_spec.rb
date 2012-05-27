@@ -9,10 +9,8 @@ describe ISRC do
   it "should correctly handle a single search result" do
     isrc = ISRC::PPLUK.new
     isrc.retrieve artist: 'Coldplay', title: 'Clocks'
-    isrc.match('5:08').should == 'GBAYE0800410'
+    isrc.match('5:08')[:isrc].should == 'GBAYE0200771'
   end
 
-  context "multiple results" do
-    
-  end
+  # GBAYE0800410
 end
