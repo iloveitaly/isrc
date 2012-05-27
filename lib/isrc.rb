@@ -11,6 +11,7 @@ module ISRC
 
   class PPLUK
     def retrieve(opts)
+      puts "INFO #{opts[:artist]}:#{opts[:title]}"
       agent = Mechanize.new
       agent.log = Logger.new "mech.log"
       agent.user_agent_alias = 'Mac Safari'
@@ -25,24 +26,36 @@ module ISRC
       ice_cookie.domain = "repsearch.ppluk.com"
       agent.cookie_jar.add!(ice_cookie)
 
+      # NOTE the online search is a bit funky: adding more to the search make the results worse
+      # trying out a three word limit
+
+      shortened_title = opts[:title]
+
+      # TODO remove '(Club Mix)' from titles
+      # TODO remove anything in brackets
+
+      if shortened_title.count(' ') > 2
+        shortened_title = shortened_title.split(' ').slice(0, 3).join(' ')
+      end
+
       begin
         isrc_search = agent.post PPLUK_AJAX_SEARCH_URL, {
           'ice.submit.partial' => 'false',
-          'ice.event.target' => 'T400335881332330323192:ars_form:search_button',
-          'ice.event.captured' => 'T400335881332330323192:ars_form:search_button',
-          'ice.event.type' => 'onclick',
-          'ice.event.alt' => 'false',
-          'ice.event.ctrl' => 'false',
-          'ice.event.shift' => 'false',
-          'ice.event.meta' => 'false',
-          'ice.event.x' => '47',
-          'ice.event.y' => '65',
-          'ice.event.left' => 'false',
-          'ice.event.right' => 'false',
+          # 'ice.event.target' => 'T400335881332330323192:ars_form:search_button',
+          # 'ice.event.captured' => 'T400335881332330323192:ars_form:search_button',
+          # 'ice.event.type' => 'onclick',
+          # 'ice.event.alt' => 'false',
+          # 'ice.event.ctrl' => 'false',
+          # 'ice.event.shift' => 'false',
+          # 'ice.event.meta' => 'false',
+          # 'ice.event.x' => '47',
+          # 'ice.event.y' => '65',
+          # 'ice.event.left' => 'false',
+          # 'ice.event.right' => 'false',
           'T400335881332330323192:ars_form:search_button' => 'Search',
           'T400335881332330323192:ars_form:isrc_code' => '',
           'T400335881332330323192:ars_form:rec_title_idx' => '',
-          'T400335881332330323192:ars_form:rec_title' => opts[:title],
+          'T400335881332330323192:ars_form:rec_title' => shortened_title,
           'T400335881332330323192:ars_form:rec_band_artist_idx' => '',
           'T400335881332330323192:ars_form:rec_band_artist' => opts[:artist],
           'javax.faces.RenderKitId' => 'ICEfacesRenderKit',
@@ -63,16 +76,33 @@ module ISRC
       # creates an array representation of the table:
       #   artist, title, isrc, released, time
       isrc_html = Nokogiri::HTML(isrc_search.body)
-      @matches = isrc_html.css("table[id='T400335881332330323192:ars_form:searchResultsTable'] tbody tr").map { |m| m.css('td').map &:text }
+      @matches = isrc_html.css("table[id='T400335881332330323192:ars_form:searchResultsTable'] tbody tr").map do |m|
+        columns = m.css('td')
+
+        # if there is no ISRC don't bother looking
+        next if columns[2] == 'Not Supplied'
+
+        # zero length music wont be used
+        next if columns[-1] == '0:00sec'
+
+        columns.map &:text
+      end
     end
 
-    def match(seconds = nil)
+    def match(opts = {})
+      return {
+        :isrc => 'No Match',
+        :delta => -1
+      } if @matches.count == 0
+
       return {
         :artist => @matches.first[0],
         :title => @matches.first[1],
         :isrc => @matches.first[2],
         :delta => 0
       } if @matches.count == 1
+
+      seconds = opts[:time]
 
       if seconds
         # if string, convert to integer. Format '5:08'
