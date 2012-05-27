@@ -7,8 +7,9 @@ describe ISRC do
   end
 
   it "should correctly handle a single search result" do
-    isrc = ISRC::PPLUK.retrieve artist: 'Coldplay', title: 'Glass'
-    isrc.should == 'GBAYE0800410'
+    isrc = ISRC::PPLUK.new
+    isrc.retrieve artist: 'Coldplay', title: 'Clocks'
+    isrc.match('5:08').should == 'GBAYE0800410'
   end
 
   context "multiple results" do
