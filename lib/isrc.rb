@@ -2,22 +2,101 @@ require "isrc/version"
 
 require 'httparty'
 require 'cgi'
-
+require 'nokogiri'
 require 'mechanize'
+require 'logger'
 
 module ISRC
-  PPLUK_SESSION_GRAB_URL = 'http://repsearch.ppluk.com/ARSWeb/appmanager/ARS/main?cont=A'
+  # NOTE the cont=A is crucial to getting the trick to work
+  PPLUK_SESSION_GRAB_URL = 'http://repsearch.ppluk.com/ARSWeb/appmanager/ARS/main'
   PPLUK_AJAX_SEARCH_URL = 'http://repsearch.ppluk.com/ARSWeb/block/send-receive-updates'
 
   class PPLUK
-    # def self.retrieve opts
-    #   agent = Mechanize.new
-    #   page = agent.get(PPLUK_SESSION_GRAB_URL)
-    #   google_form = page.form('T400335881332330323192:ars_form')
-    #   google_form.post PPLUK_AJAX_SEARCH_URL
-    # end
-      def self.retrieve(opts = {})
-        session_request = HTTParty.get PPLUK_SESSION_GRAB_URL, :headers => { 'Connection' => 'keep-alive' }, :debug_output => $stderr
+    # include HTTParty
+
+    def self.extract_view_state(body)
+      body.match(/javax\.faces\.ViewState" value="([0-9])"/)[1]
+    end
+
+    def self.extract_ice_session(body)
+      session_info = body.match(/history-frame:([^:]+):([0-9]+)/)
+      [session_info[1], session_info[2].to_i]
+    end
+
+    def self.retrieve(opts)
+      agent = Mechanize.new
+      agent.log = Logger.new "mech.log"
+      agent.user_agent_alias = 'Mac Safari'
+
+      isrc_session_init = agent.get PPLUK_SESSION_GRAB_URL
+        # search_form = page.form_with :name => "f"
+        # search_form.field_with(:name => "q").value = "Hello"
+
+        # search_results = agent.submit search_form
+        # puts search_results.body
+
+        view_state = self.extract_view_state(isrc_session_init.body)
+        ice_session, ice_session_count = self.extract_ice_session(isrc_session_init.body)
+        ice_cookie = Mechanize::Cookie.new('ice.sessions', "#{ice_session}##{ice_session_count}")
+        ice_cookie.path = "/"
+        ice_cookie.domain = "repsearch.ppluk.com"
+        agent.cookie_jar.add!(ice_cookie)
+
+        begin
+          isrc_search = agent.post PPLUK_AJAX_SEARCH_URL, {
+            'ice.submit.partial' => 'false',
+            'ice.event.target' => 'T400335881332330323192:ars_form:search_button',
+            'ice.event.captured' => 'T400335881332330323192:ars_form:search_button',
+            'ice.event.type' => 'onclick',
+            'ice.event.alt' => 'false',
+            'ice.event.ctrl' => 'false',
+            'ice.event.shift' => 'false',
+            'ice.event.meta' => 'false',
+            'ice.event.x' => '47',
+            'ice.event.y' => '65',
+            'ice.event.left' => 'false',
+            'ice.event.right' => 'false',
+            'T400335881332330323192:ars_form:search_button' => 'Search',
+            'T400335881332330323192:ars_form:isrc_code' => '',
+            'T400335881332330323192:ars_form:rec_title_idx' => '',
+            'T400335881332330323192:ars_form:rec_title' => opts[:title],
+            'T400335881332330323192:ars_form:rec_band_artist_idx' => '',
+            'T400335881332330323192:ars_form:rec_band_artist' => opts[:artist],
+            'javax.faces.RenderKitId' => 'ICEfacesRenderKit',
+            'javax.faces.ViewState' => view_state,
+            'icefacesCssUpdates' => '',
+            'T400335881332330323192:ars_form' => '',
+            'ice.session' => ice_session,
+            'ice.view' => view_state,
+            'ice.focus' => '',
+
+            # the rand is 19 characters long in the browser's HTTP requests
+            'rand' => sprintf('%1.17f', rand)
+            }, {
+            # 'User-Agent' => 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_7_4) AppleWebKit/537.1 (KHTML, like Gecko) Chrome/21.0.1152.0 Safari/537.1',
+            # 'Content-Type' => 'application/x-www-form-urlencoded; charset=UTF-8',
+            # 'Accept' => '*/*',
+            # 'Host' => 'repsearch.ppluk.com',
+            # 'Origin' => 'http://repsearch.ppluk.com',
+            # 'Referer' => PPLUK_SESSION_GRAB_URL,
+            # 'Cookie' => cookies,
+            # 'Accept-Encoding' => 'gzip,deflate,sdch',
+            # 'Accept-Language' => 'en-US,en;q=0.8',
+            # 'Accept-Charset' => 'ISO-8859-1,utf-8;q=0.7,*;q=0.3',
+            # 'Connection' => 'keep-alive',
+          }
+          rescue Mechanize::ResponseCodeError => e
+           agent.log.error "The Stuff #{e.page.body}"
+          end
+
+          puts isrc_search.body
+        end
+
+      def self.retrieve_http(opts = {})
+        session_request = self.get PPLUK_SESSION_GRAB_URL, :headers => {
+            'User-Agent' => 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_7_4) AppleWebKit/537.1 (KHTML, like Gecko) Chrome/21.0.1152.0 Safari/537.1',
+            'Connection' => 'keep-alive'
+        }, :debug_output => $stderr
         session_cookies = CGI::Cookie::parse(session_request.headers["set-cookie"])
         # session_id = cookies['JSESSIONID'].value
 
@@ -30,16 +109,18 @@ module ISRC
         cookies = { 'JSESSIONID' => session_cookies['JSESSIONID'].value.first }
         cookies['ice.sessions'] = "#{ice_session}##{ice_session_count}"
         cookies = cookies.map { |key, value| "#{key}=#{value}" }.join("; ")
-        puts cookies
-        HTTParty.post 'http://repsearch.ppluk.com/ARSWeb/block/dispose-views',
-          :body => {
-            ice_session => 1,
-            'rand' => rand
-          },
-          :debug_output => $stderr
+        # puts cookies
 
-        isrc_search = HTTParty.post PPLUK_AJAX_SEARCH_URL, 
-          :body => {
+        # self.cookies(cookies)
+        # HTTParty.post 'http://repsearch.ppluk.com/ARSWeb/block/dispose-views'  + ";jsessionid=" + session_cookies['JSESSIONID'].value.first,
+        #   :body => {
+        #     ice_session => 1,
+        #     'rand' => rand
+        #   },
+        #   :debug_output => $stderr
+
+        isrc_search = self.post PPLUK_AJAX_SEARCH_URL, 
+          :query => {
             'ice.submit.partial' => 'false',
             'ice.event.target' => 'T400335881332330323192:ars_form:search_button',
             'ice.event.captured' => 'T400335881332330323192:ars_form:search_button',
@@ -58,13 +139,15 @@ module ISRC
             'T400335881332330323192%3Aars_form%3Arec_title' => opts[:title],
             'T400335881332330323192%3Aars_form%3Arec_band_artist_idx' => '',
             'T400335881332330323192%3Aars_form%3Arec_band_artist' => opts[:artist],
-            'javax.faces.RenderKitId' => '',
+            'javax.faces.RenderKitId' => 'ICEfacesRenderKit',
             'javax.faces.ViewState' => view_state,
             'icefacesCssUpdates' => '',
             'T400335881332330323192%3Aars_form' => '',
             'ice.session' => ice_session,
             'ice.view' => view_state,
             'ice.focus' => '',
+
+            # the rand is 19 characters long in the browser's HTTP requests
             'rand' => sprintf('%1.17f', rand)
           },
           :headers => {
@@ -79,10 +162,13 @@ module ISRC
             'Accept-Language' => 'en-US,en;q=0.8',
             'Accept-Charset' => 'ISO-8859-1,utf-8;q=0.7,*;q=0.3',
             'Connection' => 'keep-alive',
-            'X-RequestedWith' => 'XmlHttpRequest'
+            # 'X-RequestedWith' => 'XmlHttpRequest'
           },
           :debug_output => $stderr
 
+        # isrc_html = Nokogiri::HTML(isrc_search.response.body)
+        # puts isrc_html
+        # extract the ISRC code
         puts isrc_search.headers.inspect
         isrc_search.response.body
       end

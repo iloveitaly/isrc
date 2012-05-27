@@ -16,6 +16,7 @@ Gem::Specification.new do |g|
   g.version       = ISRC::VERSION
 
   g.add_dependency 'httparty'
+  g.add_dependency 'nokogiri'
   g.add_dependency 'mechanize'
 
   g.add_development_dependency 'rspec'
