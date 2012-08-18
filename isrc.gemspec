@@ -3,10 +3,10 @@ require File.expand_path('../lib/isrc/version', __FILE__)
 
 Gem::Specification.new do |g|
   g.authors       = ["Michael Bianco"]
-  g.email         = ["iloveitaly@gmail.com"]
-  g.description   = %q{TODO: Write a gem description}
-  g.summary       = %q{TODO: Write a gem summary}
-  g.homepage      = ""
+  g.email         = ["info@cliffsidedev.com"]
+  g.description   = "Pull ISRC codes from PPLK UK's database"
+  # g.summary       = %q{TODO: Write a gem summary}
+  g.homepage      = "http://github.com/iloveitaly/isrc"
 
   g.files         = `git ls-files`.split($\)
   g.executables   = g.files.grep(%r{^bin/}).map{ |f| File.basename(f) }

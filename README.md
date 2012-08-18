@@ -1,24 +1,26 @@
-# Isrc
+# ISRC
 
-TODO: Write a gem description
+Gem to pull isrc code data from [PPL UK's database](http://repsearch.ppluk.com/ARSWeb/appmanager/ARS/main).
+
+Although this gem uses ppluk's DB, the goal is support more DBs as the need arises.
 
 ## Installation
 
-Add this line to your application's Gemfile:
-
-    gem 'isrc'
-
-And then execute:
-
-    $ bundle
-
-Or install it yourself as:
-
-    $ gem install isrc
+Add this line to your application's Gemfile or install manually.
 
 ## Usage
 
-TODO: Write usage instructions here
+	class Song
+	  def update_isrc
+	    retriever = ISRC::PPLUK.new
+	    retriever.retrieve artist: self.artist, title: self.title
+	    isrc_match = retriever.match(time: self.song_length)
+	
+	    self.isrc = isrc_match[:isrc]
+	    self.match_quality = isrc_match[:delta]
+	  end
+	end
+
 
 ## Contributing
 
@@ -27,3 +29,5 @@ TODO: Write usage instructions here
 3. Commit your changes (`git commit -am 'Added some feature'`)
 4. Push to the branch (`git push origin my-new-feature`)
 5. Create new Pull Request
+
+Copyright (c) 2012 Michael Bianco, released under the New BSD License
