@@ -11,7 +11,7 @@ module ISRC
 
   class PPLUK
     def retrieve(opts)
-      puts "INFO #{opts[:artist]}:#{opts[:title]}"
+      # puts "INFO #{opts[:artist]}:#{opts[:title]}"
       agent = Mechanize.new
       agent.log = Logger.new "mech.log"
       agent.user_agent_alias = 'Mac Safari'
@@ -74,7 +74,7 @@ module ISRC
       end
 
       # creates an array representation of the table:
-      #   artist, title, isrc, released, time
+      #   artist, title, isrc, rights holder, released, time
       isrc_html = Nokogiri::HTML(isrc_search.body)
       @matches = isrc_html.css("table[id='T400335881332330323192:ars_form:searchResultsTable'] tbody tr").map do |m|
         columns = m.css('td')
@@ -110,7 +110,7 @@ module ISRC
         match_quality = []
 
         @matches.each do |song_match|
-          song_seconds = timestring_to_integer(song_match[4].match(/([0-9]:[0-9]{2})/)[1])
+          song_seconds = timestring_to_integer(song_match[5].match(/([0-9]:[0-9]{2})/)[1])
           match_quality << { :delta => (song_seconds - seconds).abs, :match => song_match }
         end
 
