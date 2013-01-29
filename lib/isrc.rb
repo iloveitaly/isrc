@@ -12,7 +12,7 @@ module ISRC
   class PPLUK
     def retrieve(opts)
       # default options
-      opts = { :short_title => true }.merge(opts)
+      opts = { :title_size => 2 }.merge(opts)
 
       agent = Mechanize.new
       agent.log = Logger.new "mech.log"
@@ -31,14 +31,8 @@ module ISRC
       # NOTE the online search is a bit funky: adding more to the search make the results worse
       # trying out a three word limit
 
-      shortened_title = opts[:title]
-
-      # TODO remove '(Club Mix)' from titles
-      # TODO remove anything in brackets
-
-      if shortened_title.count(' ') > 2 and opts[:short_title]
-        shortened_title = shortened_title.split(' ').slice(0, 3).join(' ')
-      end
+      title_pieces = extract_song_peices(opts[:title])
+      shortened_title = title_pieces.slice(0, [opts[:title_size], title_pieces.size].min).join(' ')
 
       puts "Title: #{shortened_title}\nArtist: #{opts[:artist]}"
 
@@ -93,8 +87,8 @@ module ISRC
       end
 
       # if the shortened title did not work, try making it longer
-      if @matches.empty? and opts[:short_title]
-        self.retrieve(opts.merge({:short_title => false}))
+      if @matches.empty? and opts[:title_size] < title_pieces.size
+        self.retrieve(opts.merge({:title_size => opts[:title_size] + 1}))
       end
     end
 
@@ -137,19 +131,25 @@ module ISRC
     end
 
     protected
-    def extract_view_state(body)
-      body.match(/javax\.faces\.ViewState" value="([0-9])"/)[1]
-    end
+      def extract_song_peices(title)
+        title_pieces = title.split(/(\([^)]+\)|\[[^\]]+\])/).reject { |s| s.strip.empty? }
+        title_pieces[0] = title_pieces[0].split(' ')
+        title_pieces.flatten
+      end
 
-    def extract_ice_session(body)
-      session_info = body.match(/history-frame:([^:]+):([0-9]+)/)
-      [session_info[1], session_info[2].to_i]
-    end
+      def extract_view_state(body)
+        body.match(/javax\.faces\.ViewState" value="([0-9])"/)[1]
+      end
 
-    def timestring_to_integer(time_string)
-      minutes, seconds = time_string.split(':')
-      minutes.to_i * 60 + seconds.to_i
-    end
+      def extract_ice_session(body)
+        session_info = body.match(/history-frame:([^:]+):([0-9]+)/)
+        [session_info[1], session_info[2].to_i]
+      end
+
+      def timestring_to_integer(time_string)
+        minutes, seconds = time_string.split(':')
+        minutes.to_i * 60 + seconds.to_i
+      end
 
   end
 end

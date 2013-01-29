@@ -43,4 +43,24 @@ describe ISRC do
     isrc.retrieve artist:'Slut Puppies', title:'Funky Together' 
     isrc.match(time:'6:36')[:isrc].should == 'No Match'
   end
+
+  context "song title processing" do
+    it "should handle bracket mixes" do
+      pieces = isrc.send(:extract_song_peices, "Surrender [Original Mix]")
+      pieces.size.should == 2
+      pieces.last.should == "[Original Mix]"
+    end
+
+    it "should handle parenthesis mixes" do
+      pieces = isrc.send(:extract_song_peices, "Want Me (Like Water) (New Vocal Mix No 1)")
+      pieces.size.should == 4
+      pieces.last.should == '(New Vocal Mix No 1)'
+    end
+
+    it "should handle a standard multi-word title" do
+      pieces = isrc.send(:extract_song_peices, "Take Your Time")
+      pieces.size.should == 3
+      pieces.last.should == "Time"
+    end
+  end
 end
