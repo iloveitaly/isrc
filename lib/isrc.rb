@@ -11,7 +11,9 @@ module ISRC
 
   class PPLUK
     def retrieve(opts)
-      # puts "INFO #{opts[:artist]}:#{opts[:title]}"
+      # default options
+      opts = { :short_title => true }.merge(opts)
+
       agent = Mechanize.new
       agent.log = Logger.new "mech.log"
       agent.user_agent_alias = 'Mac Safari'
@@ -34,9 +36,11 @@ module ISRC
       # TODO remove '(Club Mix)' from titles
       # TODO remove anything in brackets
 
-      if shortened_title.count(' ') > 2
+      if shortened_title.count(' ') > 2 and opts[:short_title]
         shortened_title = shortened_title.split(' ').slice(0, 3).join(' ')
       end
+
+      puts "Title: #{shortened_title}\nArtist: #{opts[:artist]}"
 
       begin
         isrc_search = agent.post PPLUK_AJAX_SEARCH_URL, {
@@ -86,6 +90,11 @@ module ISRC
         next if columns[-1] == '0:00sec'
 
         columns.map &:text
+      end
+
+      # if the shortened title did not work, try making it longer
+      if @matches.empty? and opts[:short_title]
+        self.retrieve(opts.merge({:short_title => false}))
       end
     end
 

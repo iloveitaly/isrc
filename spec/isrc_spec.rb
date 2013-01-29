@@ -18,15 +18,20 @@ describe ISRC do
   context "should handle songs with multiple results" do
     it "when the results have the same title and time code" do
       isrc.retrieve artist:'Parade', title:'Louder'
-      isrc.match(time:'2:53')[:isrc].should == 'GBAHS1000333'      
+      isrc.match(time:'2:53')[:isrc].should == 'GBAHS1000333'
     end
 
-    it "when there are multiple results, but all with different names" do
+    it "handles different names" do
       isrc.retrieve artist:'Soul II Soul', title: 'Back To Life (However Do You Want Me) (Club Mix)'
       isrc.match(time:'7:39')[:isrc].should == 'GBAAA8900153'
 
       # the better match seems to be: GB1209500610
       # however, the length delta is huge
+    end
+
+    it "handles edge cases that don't make sense" do
+      isrc.retrieve artist:'Toni Braxton', title:'Youre Making me High'
+      isrc.match(time:'4:12')[:isrc].should == 'USLF29600183'
     end
   end
 

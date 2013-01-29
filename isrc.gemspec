@@ -5,7 +5,7 @@ Gem::Specification.new do |g|
   g.authors       = ["Michael Bianco"]
   g.email         = ["info@cliffsidedev.com"]
   g.description   = "Pull ISRC codes from PPLK UK's database"
-  # g.summary       = %q{TODO: Write a gem summary}
+  g.summary       = "Pull ISRC codes from PPLK UK's database"
   g.homepage      = "http://github.com/iloveitaly/isrc"
 
   g.files         = `git ls-files`.split($\)
