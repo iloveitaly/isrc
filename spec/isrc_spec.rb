@@ -51,10 +51,17 @@ describe ISRC do
       pieces.last.should == "[Original Mix]"
     end
 
-    it "should handle parenthesis mixes" do
-      pieces = isrc.send(:extract_song_peices, "Want Me (Like Water) (New Vocal Mix No 1)")
-      pieces.size.should == 4
-      pieces.last.should == '(New Vocal Mix No 1)'
+    context 'of parenthesis' do
+      it "should count parenthesis as a single song peice" do
+        pieces = isrc.send(:extract_song_peices, "Want Me (Like Water) (New Vocal Mix No 1)")
+        pieces.size.should == 4
+        pieces.last.should == '(New Vocal Mix No 1)'
+      end
+
+      it "should handle a single word song with parenthesis" do
+        isrc.retrieve artist:'Niko', title: 'Womb (Flight Facilities feat. Giselle)'
+        isrc.match(time:'3:44')[:isrc].should == 'GBKNX0500003'
+      end
     end
 
     it "should handle a standard multi-word title" do
