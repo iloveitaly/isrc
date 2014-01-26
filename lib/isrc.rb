@@ -34,7 +34,7 @@ module ISRC
       title_pieces = extract_song_peices(opts[:title])
       shortened_title = title_pieces.slice(0, [opts[:title_size], title_pieces.size].min).join(' ')
 
-      puts "Title: #{shortened_title}\nArtist: #{opts[:artist]}"
+      # puts "Title: #{shortened_title}\nArtist: #{opts[:artist]}"
 
       begin
         isrc_search = agent.post PPLUK_AJAX_SEARCH_URL, {
@@ -50,16 +50,16 @@ module ISRC
           # 'ice.event.y' => '65',
           # 'ice.event.left' => 'false',
           # 'ice.event.right' => 'false',
-          'T400335881332330323192:ars_form:search_button' => 'Search',
-          'T400335881332330323192:ars_form:isrc_code' => '',
-          'T400335881332330323192:ars_form:rec_title_idx' => '',
-          'T400335881332330323192:ars_form:rec_title' => shortened_title,
-          'T400335881332330323192:ars_form:rec_band_artist_idx' => '',
-          'T400335881332330323192:ars_form:rec_band_artist' => opts[:artist],
+          'T5000782701386267377497:ars_form:search_button' => 'Search',
+          'T5000782701386267377497:ars_form:isrc_code' => '',
+          'T5000782701386267377497:ars_form:rec_title_idx' => '',
+          'T5000782701386267377497:ars_form:rec_title' => shortened_title,
+          'T5000782701386267377497:ars_form:rec_band_artist_idx' => '',
+          'T5000782701386267377497:ars_form:rec_band_artist' => opts[:artist],
           'javax.faces.RenderKitId' => 'ICEfacesRenderKit',
           'javax.faces.ViewState' => view_state,
           'icefacesCssUpdates' => '',
-          'T400335881332330323192:ars_form' => '',
+          'T5000782701386267377497:ars_form' => '',
           'ice.session' => ice_session,
           'ice.view' => view_state,
           'ice.focus' => '',
@@ -68,13 +68,13 @@ module ISRC
           'rand' => sprintf('%1.17f', rand)
         }
       rescue Mechanize::ResponseCodeError => e
-        agent.log.error "The Stuff #{e.page.body}"
+        agent.log.error "Error submitting AJAX request: #{e.page.body}"
       end
 
       # creates an array representation of the table:
       #   artist, title, isrc, rights holder, released, time
       isrc_html = Nokogiri::HTML(isrc_search.body)
-      @matches = isrc_html.css("table[id='T400335881332330323192:ars_form:searchResultsTable'] tbody tr").map do |m|
+      @matches = isrc_html.css("table[id='T5000782701386267377497:ars_form:searchResultsTable'] tbody tr").map do |m|
         columns = m.css('td')
 
         # if there is no ISRC don't bother looking
@@ -87,7 +87,7 @@ module ISRC
       end
 
       # if the shortened title did not work, try making it longer
-      if @matches.empty? and opts[:title_size] < title_pieces.size
+      if @matches.empty? && opts[:title_size] < title_pieces.size
         self.retrieve(opts.merge({:title_size => opts[:title_size] + 1}))
       end
     end
