@@ -5,6 +5,7 @@ gemspec
 
 group :test do
   gem 'guard-rspec'
+  gem 'pry'
   
   if RUBY_PLATFORM.downcase.include? "darwin"
    gem 'rb-fsevent'
