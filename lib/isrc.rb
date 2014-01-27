@@ -9,15 +9,18 @@ module ISRC
   PPLUK_SESSION_GRAB_URL = 'http://repsearch.ppluk.com/ARSWeb/appmanager/ARS/main'
   PPLUK_AJAX_SEARCH_URL = 'http://repsearch.ppluk.com/ARSWeb/block/send-receive-updates'
 
+  def self.configure(&block)
+    ISRC::Configuration.instance_eval(&block)
+  end
+
   class PPLUK
     def retrieve(opts)
-      # default options
       opts = { :title_size => 2 }.merge(opts)
 
       # NOTE the online search is a bit funky: adding more to the search make the results worse
       # trying out a three word limit
 
-      title_pieces = extract_song_peices(opts[:title])
+      title_pieces = self.extract_song_peices(opts[:title])
       shortened_title = title_pieces.slice(0, [opts[:title_size], title_pieces.size].min).join(' ')
 
       @matches = self.request({title: shortened_title, artist: opts[:artist]})
@@ -69,16 +72,19 @@ module ISRC
     protected
       def extract_song_peices(title)
         # this splits a song title into peices:
-        #   * 'bracket' peice 
-        #   * 'parenthesis' peice
-        #   * song words
+        #   * 'bracket' peice (meta)
+        #   * 'parenthesis' peice (meta)
+        #   * song words (title)
 
-        # the PPL search doesn't seem to handle brackets or parens well
-        # those are the first to be stripped off of the search results
+        all_pieces = title.split(/(\([^)]+\)|\[[^\]]+\])/).reject { |s| s.strip.empty? }
+        title_pieces = all_pieces.shift.split(' ')
+        meta_pieces = all_pieces
 
-        title_pieces = title.split(/(\([^)]+\)|\[[^\]]+\])/).reject { |s| s.strip.empty? }
-        title_pieces[0] = title_pieces[0].split(' ')
-        title_pieces.flatten
+        {
+          all: [title_pieces, meta_pieces].flatten,
+          meta: meta_pieces,
+          title: title_pieces
+        }
       end
 
       def extract_view_state(body)

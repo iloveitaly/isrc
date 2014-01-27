@@ -33,6 +33,10 @@ describe ISRC do
       isrc.retrieve artist:'Toni Braxton', title:'Youre Making me High'
       isrc.match(time:'4:12')[:isrc].should == 'USLF29600183'
     end
+
+    it "handles the case where the primary match is not supplied" do
+      
+    end
   end
 
   it "should handle songs with no results" do
@@ -45,29 +49,41 @@ describe ISRC do
   end
 
   context "song title processing" do
-    it "should handle bracket mixes" do
-      pieces = isrc.send(:extract_song_peices, "Surrender [Original Mix]")
-      pieces.size.should == 2
-      pieces.last.should == "[Original Mix]"
+    context 'of brackets' do
+      it "should parse them correctly with a one word song" do
+        pieces = isrc.send(:extract_song_peices, "Surrender [Original Mix]")
+        pieces[:all].size.should == 2
+        pieces[:all].last.should == "[Original Mix]"
+        pieces[:meta].size.should == 1
+      end
     end
 
     context 'of parenthesis' do
       it "should count parenthesis as a single song peice" do
         pieces = isrc.send(:extract_song_peices, "Want Me (Like Water) (New Vocal Mix No 1)")
-        pieces.size.should == 4
-        pieces.last.should == '(New Vocal Mix No 1)'
+        pieces[:all].size.should == 4
+        pieces[:all].last.should == '(New Vocal Mix No 1)'
+        pieces[:meta].size.should == 2
+        pieces[:title].size.should == 2
       end
 
       it "should handle a single word song with parenthesis" do
         isrc.retrieve artist:'Niko', title: 'Womb (Flight Facilities feat. Giselle)'
         isrc.match(time:'3:44')[:isrc].should == 'GBKNX0500003'
+
+        isrc = ISRC::PPLUK.new
+        isrc.retrieve artist:'Frank Sinatra', title: 'Chicago (Digitally Remastered)'
+        isrc.match(time:'2:14')[:isrc].should == 'USCA20300966'
+        # or USCA29800388; they are basically the same
       end
     end
 
     it "should handle a standard multi-word title" do
       pieces = isrc.send(:extract_song_peices, "Take Your Time")
-      pieces.size.should == 3
-      pieces.last.should == "Time"
+      pieces[:all].size.should == 3
+      pieces[:title].size.should == 3
+      pieces[:title].last.should == "Time"
     end
+
   end
 end
