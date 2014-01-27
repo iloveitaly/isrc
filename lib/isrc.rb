@@ -14,77 +14,13 @@ module ISRC
       # default options
       opts = { :title_size => 2 }.merge(opts)
 
-      agent = Mechanize.new
-      agent.log = Logger.new "mech.log"
-      agent.user_agent_alias = 'Mac Safari'
-
-      isrc_session_init = agent.get PPLUK_SESSION_GRAB_URL
-      view_state = self.extract_view_state(isrc_session_init.body)
-      ice_session, ice_session_count = self.extract_ice_session(isrc_session_init.body)
-
-      # add the ice_sessions cookie
-      ice_cookie = Mechanize::Cookie.new('ice.sessions', "#{ice_session}##{ice_session_count}")
-      ice_cookie.path = "/"
-      ice_cookie.domain = "repsearch.ppluk.com"
-      agent.cookie_jar.add!(ice_cookie)
-
       # NOTE the online search is a bit funky: adding more to the search make the results worse
       # trying out a three word limit
 
       title_pieces = extract_song_peices(opts[:title])
       shortened_title = title_pieces.slice(0, [opts[:title_size], title_pieces.size].min).join(' ')
 
-      # puts "Title: #{shortened_title}\nArtist: #{opts[:artist]}"
-
-      begin
-        isrc_search = agent.post PPLUK_AJAX_SEARCH_URL, {
-          'ice.submit.partial' => 'false',
-          # 'ice.event.target' => 'T400335881332330323192:ars_form:search_button',
-          # 'ice.event.captured' => 'T400335881332330323192:ars_form:search_button',
-          # 'ice.event.type' => 'onclick',
-          # 'ice.event.alt' => 'false',
-          # 'ice.event.ctrl' => 'false',
-          # 'ice.event.shift' => 'false',
-          # 'ice.event.meta' => 'false',
-          # 'ice.event.x' => '47',
-          # 'ice.event.y' => '65',
-          # 'ice.event.left' => 'false',
-          # 'ice.event.right' => 'false',
-          'T5000782701386267377497:ars_form:search_button' => 'Search',
-          'T5000782701386267377497:ars_form:isrc_code' => '',
-          'T5000782701386267377497:ars_form:rec_title_idx' => '',
-          'T5000782701386267377497:ars_form:rec_title' => shortened_title,
-          'T5000782701386267377497:ars_form:rec_band_artist_idx' => '',
-          'T5000782701386267377497:ars_form:rec_band_artist' => opts[:artist],
-          'javax.faces.RenderKitId' => 'ICEfacesRenderKit',
-          'javax.faces.ViewState' => view_state,
-          'icefacesCssUpdates' => '',
-          'T5000782701386267377497:ars_form' => '',
-          'ice.session' => ice_session,
-          'ice.view' => view_state,
-          'ice.focus' => '',
-
-          # the rand is 19 characters long in the browser's HTTP requests
-          'rand' => sprintf('%1.17f', rand)
-        }
-      rescue Mechanize::ResponseCodeError => e
-        agent.log.error "Error submitting AJAX request: #{e.page.body}"
-      end
-
-      # creates an array representation of the table:
-      #   artist, title, isrc, rights holder, released, time
-      isrc_html = Nokogiri::HTML(isrc_search.body)
-      @matches = isrc_html.css("table[id='T5000782701386267377497:ars_form:searchResultsTable'] tbody tr").map do |m|
-        columns = m.css('td')
-
-        # if there is no ISRC don't bother looking
-        next if columns[2] == 'Not Supplied'
-
-        # zero length music wont be used
-        next if columns[-1] == '0:00sec'
-
-        columns.map &:text
-      end
+      @matches = self.request({title: shortened_title, artist: opts[:artist]})
 
       # if the shortened title did not work, try making it longer
       if @matches.empty? && opts[:title_size] < title_pieces.size
@@ -132,6 +68,14 @@ module ISRC
 
     protected
       def extract_song_peices(title)
+        # this splits a song title into peices:
+        #   * 'bracket' peice 
+        #   * 'parenthesis' peice
+        #   * song words
+
+        # the PPL search doesn't seem to handle brackets or parens well
+        # those are the first to be stripped off of the search results
+
         title_pieces = title.split(/(\([^)]+\)|\[[^\]]+\])/).reject { |s| s.strip.empty? }
         title_pieces[0] = title_pieces[0].split(' ')
         title_pieces.flatten
@@ -149,6 +93,77 @@ module ISRC
       def timestring_to_integer(time_string)
         minutes, seconds = time_string.split(':')
         minutes.to_i * 60 + seconds.to_i
+      end
+
+      def request(opts = {})
+        # puts "Title: #{shortened_title}\nArtist: #{opts[:artist]}"
+
+        agent = Mechanize.new
+        # TODO log path needs to be configurable
+        agent.log = Logger.new "mech.log"
+        agent.user_agent_alias = 'Mac Safari'
+
+        # grab the main page HTML to pull session vars to make the AJAX request
+        isrc_session_init = agent.get(PPLUK_SESSION_GRAB_URL)
+        view_state = self.extract_view_state(isrc_session_init.body)
+        ice_session, ice_session_count = self.extract_ice_session(isrc_session_init.body)
+
+        # add the ice_sessions cookie for the AJAX search request
+        ice_cookie = Mechanize::Cookie.new('ice.sessions', "#{ice_session}##{ice_session_count}")
+        ice_cookie.path = "/"
+        ice_cookie.domain = "repsearch.ppluk.com"
+        agent.cookie_jar.add!(ice_cookie)
+
+        begin
+          isrc_search = agent.post PPLUK_AJAX_SEARCH_URL, {
+            'ice.submit.partial' => 'false',
+            # 'ice.event.target' => 'T400335881332330323192:ars_form:search_button',
+            # 'ice.event.captured' => 'T400335881332330323192:ars_form:search_button',
+            # 'ice.event.type' => 'onclick',
+            # 'ice.event.alt' => 'false',
+            # 'ice.event.ctrl' => 'false',
+            # 'ice.event.shift' => 'false',
+            # 'ice.event.meta' => 'false',
+            # 'ice.event.x' => '47',
+            # 'ice.event.y' => '65',
+            # 'ice.event.left' => 'false',
+            # 'ice.event.right' => 'false',
+            'T5000782701386267377497:ars_form:search_button' => 'Search',
+            'T5000782701386267377497:ars_form:isrc_code' => '',
+            'T5000782701386267377497:ars_form:rec_title_idx' => '',
+            'T5000782701386267377497:ars_form:rec_title' => opts[:title],
+            'T5000782701386267377497:ars_form:rec_band_artist_idx' => '',
+            'T5000782701386267377497:ars_form:rec_band_artist' => opts[:artist],
+            'javax.faces.RenderKitId' => 'ICEfacesRenderKit',
+            'javax.faces.ViewState' => view_state,
+            'icefacesCssUpdates' => '',
+            'T5000782701386267377497:ars_form' => '',
+            'ice.session' => ice_session,
+            'ice.view' => view_state,
+            'ice.focus' => '',
+
+            # the rand is 19 characters long in the browser's HTTP requests
+            'rand' => sprintf('%1.17f', rand)
+          }
+        rescue Mechanize::ResponseCodeError => e
+          agent.log.error "Error submitting AJAX request: #{e.page.body}"
+        end
+
+        # creates an array representation of the table:
+        #   artist, title, isrc, rights holder, released, time
+
+        isrc_table = Nokogiri::HTML(isrc_search.body).css("table[id='T5000782701386267377497:ars_form:searchResultsTable'] tbody tr")
+        isrc_table.map do |m|
+          columns = m.css('td')
+
+          # if there is no ISRC don't bother looking
+          next if columns[2] == 'Not Supplied'
+
+          # zero length music wont be used
+          next if columns[-1] == '0:00sec'
+
+          columns.map &:text
+        end
       end
 
   end
