@@ -15,19 +15,49 @@ module ISRC
 
   class PPLUK
     def retrieve(opts)
-      opts = { :title_size => 2 }.merge(opts)
-
       # NOTE the online search is a bit funky: adding more to the search make the results worse
       # trying out a three word limit
 
-      title_pieces = self.extract_song_peices(opts[:title])
-      shortened_title = title_pieces.slice(0, [opts[:title_size], title_pieces.size].min).join(' ')
+      pieces = self.extract_song_peices(opts[:title])
 
-      @matches = self.request({title: shortened_title, artist: opts[:artist]})
+      # try the first two pieces at first
 
-      # if the shortened title did not work, try making it longer
-      if @matches.empty? && opts[:title_size] < title_pieces.size
-        self.retrieve(opts.merge({:title_size => opts[:title_size] + 1}))
+      # if the song is only one word, submit request with on processing
+      if pieces[:all].size == 1
+        @matches = self.request(opts)
+      elsif pieces[:all].size > 1
+        # let's try increasing the number of pieces, starting from 2
+        pieces_count = 1
+
+        begin
+          pieces_count += 1
+
+          shortened_title = pieces[:all].slice(0, pieces_count).join(' ')
+
+          @matches = self.request({
+            title: shortened_title,
+            artist: opts[:artist]
+          })
+        end while @matches.empty? && pieces[:all].size > pieces_count + 1
+
+        # given 'Surrender [Original Mix]' the above algorithm will submit the entire title
+        # if that didn't work, strip out all meta elements and try greatest to least number of song pieces
+
+        # TODO we shouldn't allow one letter or two letter title requests
+
+        pieces_count = pieces[:title].size
+
+        while @matches.empty? && pieces_count > 0
+          shortened_title = pieces[:title].slice(0, pieces_count).join(' ')
+
+          @matches = self.request({
+            title: shortened_title,
+            artist: opts[:artist]
+          })
+
+          pieces_count -= 1
+        end
+
       end
     end
 
@@ -102,7 +132,7 @@ module ISRC
       end
 
       def request(opts = {})
-        # puts "Title: #{shortened_title}\nArtist: #{opts[:artist]}"
+        puts "Title: #{opts[:title]}\nArtist: #{opts[:artist]}"
 
         agent = Mechanize.new
         # TODO log path needs to be configurable
