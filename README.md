@@ -21,6 +21,13 @@ Add this line to your application's Gemfile or install manually.
 	  end
 	end
 
+## How Does it Work?
+
+We are querying the PPL UK ISRC databases using their [public search tool](http://repsearch.ppluk.com/ARSWeb/appmanager/ARS/main).
+
+The web app is written in Java. It makes an ajax request to grab search results.
+
+The AJAX request will fail unless the request has specific session vars and cookie values based on the response data from the main app response.
 
 ## Contributing
 
