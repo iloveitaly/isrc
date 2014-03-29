@@ -29,6 +29,16 @@ describe ISRC do
       # however, the length delta is huge
     end
 
+    it "handles results with brackets" do
+      isrc.retrieve artist: 'Curiosity Killed The Cat', title: 'Down to Earth'
+      isrc.match(time:'03:54')[:isrc].should == 'GBF088600037'
+    end
+
+    it 'handles a mixed version of a song when there is not a mixed version listed' do
+      isrc.retrieve artist:'Kings of Leon', title: 'Use Somebody (Chew Fu Festival Fix)'
+      isrc.match(time:'5:37')[:isrc].should == 'USRC10800301'
+    end
+
     it "handles edge cases that don't make sense" do
       isrc.retrieve artist:'Toni Braxton', title:'Youre Making me High'
       isrc.match(time:'4:12')[:isrc].should == 'USLF29600183'
@@ -75,6 +85,8 @@ describe ISRC do
         isrc.retrieve artist:'Frank Sinatra', title: 'Chicago (Digitally Remastered)'
         isrc.match(time:'2:14')[:isrc].should == 'USCA20300966'
         # or USCA29800388; they are basically the same
+
+        # Bagatelle in A minor, WoO 59 -`Für Elise` by Bella Davidovich...
       end
     end
 
