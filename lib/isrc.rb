@@ -164,16 +164,16 @@ module ISRC
             # 'ice.event.y' => '65',
             # 'ice.event.left' => 'false',
             # 'ice.event.right' => 'false',
-            'T5000782701386267377497:ars_form:search_button' => 'Search',
-            'T5000782701386267377497:ars_form:isrc_code' => '',
-            'T5000782701386267377497:ars_form:rec_title_idx' => '',
-            'T5000782701386267377497:ars_form:rec_title' => opts[:title],
-            'T5000782701386267377497:ars_form:rec_band_artist_idx' => '',
-            'T5000782701386267377497:ars_form:rec_band_artist' => opts[:artist],
+            'T6400388221404841317247:ars_form:search_button' => 'Search',
+            'T6400388221404841317247:ars_form:isrc_code' => '',
+            'T6400388221404841317247:ars_form:rec_title_idx' => '',
+            'T6400388221404841317247:ars_form:rec_title' => opts[:title],
+            'T6400388221404841317247:ars_form:rec_band_artist_idx' => '',
+            'T6400388221404841317247:ars_form:rec_band_artist' => opts[:artist],
             'javax.faces.RenderKitId' => 'ICEfacesRenderKit',
             'javax.faces.ViewState' => view_state,
             'icefacesCssUpdates' => '',
-            'T5000782701386267377497:ars_form' => '',
+            'T6400388221404841317247:ars_form' => '',
             'ice.session' => ice_session,
             'ice.view' => view_state,
             'ice.focus' => '',
@@ -188,7 +188,7 @@ module ISRC
         # creates an array representation of the table:
         #   artist, title, isrc, rights holder, released, time
 
-        isrc_table = Nokogiri::HTML(isrc_search.body).css("table[id='T5000782701386267377497:ars_form:searchResultsTable'] tbody tr")
+        isrc_table = Nokogiri::HTML(isrc_search.body).css("table[id='T6400388221404841317247:ars_form:searchResultsTable'] tbody tr")
         isrc_table.map do |m|
           columns = m.css('td')
 
