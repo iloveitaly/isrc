@@ -6,8 +6,8 @@ require 'logger'
 
 module ISRC
   # NOTE the cont=A is crucial to getting the trick to work
-  PPLUK_SESSION_GRAB_URL = 'http://repsearch.ppluk.com/ARSWeb/appmanager/ARS/main'
-  PPLUK_AJAX_SEARCH_URL = 'http://repsearch.ppluk.com/ARSWeb/block/send-receive-updates'
+  PPLUK_SESSION_GRAB_URL = 'http://repsearch.ppluk.com/ars/faces/pages/audioSearch.jspx'
+  PPLUK_AJAX_SEARCH_URL = 'http://repsearch.ppluk.com/ars/faces/pages/audioSearch.jspx'
 
   def self.configure(&block)
     ISRC::Configuration.instance_eval(&block)
@@ -38,7 +38,7 @@ module ISRC
             title: shortened_title,
             artist: opts[:artist]
           })
-        end while @matches.empty? && pieces[:all].size > pieces_count + 1
+        end while @matches.empty? && pieces[:all].size >= pieces_count + 1
 
         # given 'Surrender [Original Mix]' the above algorithm will submit the entire title
         # if that didn't work, strip out all meta elements and try greatest to least number of song pieces
@@ -118,12 +118,13 @@ module ISRC
       end
 
       def extract_view_state(body)
-        body.match(/javax\.faces\.ViewState" value="([0-9])"/)[1]
+        # in the older PPL interface it was
+        # body.match(/javax\.faces\.ViewState" value="([0-9])"/)[1]
+        Nokogiri::HTML(body).css("span[id='f1::postscript'] input").first.attributes["value"].to_s
       end
 
-      def extract_ice_session(body)
-        session_info = body.match(/history-frame:([^:]+):([0-9]+)/)
-        [session_info[1], session_info[2].to_i]
+      def extract_control_state(body)
+        body.match(/_adf\.ctrl-state=([^"]+)/)[1]
       end
 
       def timestring_to_integer(time_string)
@@ -135,26 +136,29 @@ module ISRC
         puts "Title: #{opts[:title]}\nArtist: #{opts[:artist]}"
 
         agent = Mechanize.new
+
         # TODO log path needs to be configurable
         agent.log = Logger.new "mech.log"
-        agent.user_agent_alias = 'Mac Safari'
+        # agent.user_agent = "User-Agent  Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/600.2.5 (KHTML, like Gecko) Version/8.0.2 Safari/600.2.5"
 
         # grab the main page HTML to pull session vars to make the AJAX request
         isrc_session_init = agent.get(PPLUK_SESSION_GRAB_URL)
         view_state = self.extract_view_state(isrc_session_init.body)
-        ice_session, ice_session_count = self.extract_ice_session(isrc_session_init.body)
+        control_state = self.extract_control_state(isrc_session_init.body)
+
+        # ice_session, ice_session_count = self.extract_ice_session(isrc_session_init.body)
 
         # add the ice_sessions cookie for the AJAX search request
-        ice_cookie = Mechanize::Cookie.new('ice.sessions', "#{ice_session}##{ice_session_count}")
-        ice_cookie.path = "/"
-        ice_cookie.domain = "repsearch.ppluk.com"
-        agent.cookie_jar.add!(ice_cookie)
+        # ice_cookie = Mechanize::Cookie.new('ice.sessions', "#{ice_session}##{ice_session_count}")
+        # ice_cookie.path = "/"
+        # ice_cookie.domain = "repsearch.ppluk.com"
+        # agent.cookie_jar.add!(ice_cookie)
 
         begin
-          isrc_search = agent.post PPLUK_AJAX_SEARCH_URL, {
-            'ice.submit.partial' => 'false',
-            # 'ice.event.target' => 'T400335881332330323192:ars_form:search_button',
-            # 'ice.event.captured' => 'T400335881332330323192:ars_form:search_button',
+          isrc_search = agent.post PPLUK_AJAX_SEARCH_URL + "?_afrWindowMode=0&_afrLoop=4161608415822937&_adf.ctrl-state=#{control_state}", {
+            # 'ice.submit.partial' => 'false',
+            # 'ice.event.target' => 'T6400388221404841317247:ars_form:search_button',
+            # 'ice.event.captured' => 'T6400388221404841317247:ars_form:search_button',
             # 'ice.event.type' => 'onclick',
             # 'ice.event.alt' => 'false',
             # 'ice.event.ctrl' => 'false',
@@ -164,22 +168,28 @@ module ISRC
             # 'ice.event.y' => '65',
             # 'ice.event.left' => 'false',
             # 'ice.event.right' => 'false',
-            'T6400388221404841317247:ars_form:search_button' => 'Search',
-            'T6400388221404841317247:ars_form:isrc_code' => '',
-            'T6400388221404841317247:ars_form:rec_title_idx' => '',
-            'T6400388221404841317247:ars_form:rec_title' => opts[:title],
-            'T6400388221404841317247:ars_form:rec_band_artist_idx' => '',
-            'T6400388221404841317247:ars_form:rec_band_artist' => opts[:artist],
-            'javax.faces.RenderKitId' => 'ICEfacesRenderKit',
+            # 'T6400388221404841317247:ars_form:search_button' => 'Search',
+            # 'T6400388221404841317247:ars_form:isrc_code' => '',
+            # 'T6400388221404841317247:ars_form:rec_title_idx' => '',
+            'pt1:rec_title' => opts[:title],
+            # 'T6400388221404841317247:ars_form:rec_band_artist_idx' => '',
+            "pt1:isrc_code" => "",
+            'pt1:rec_band_artist' => opts[:artist],
+            # 'javax.faces.RenderKitId' => 'ICEfacesRenderKit',
             'javax.faces.ViewState' => view_state,
-            'icefacesCssUpdates' => '',
-            'T6400388221404841317247:ars_form' => '',
-            'ice.session' => ice_session,
-            'ice.view' => view_state,
-            'ice.focus' => '',
+            "org.apache.myfaces.trinidad.faces.FORM" => "f1",
+            "event" => "pt1:search_button",
+            # 'icefacesCssUpdates' => '',
+            # 'T6400388221404841317247:ars_form' => '',
+            # 'ice.session' => ice_session,
+            # 'ice.view' => view_state,
+            # 'ice.focus' => 'T6400388221404841317247:ars_form:search_button',
 
             # the rand is 19 characters long in the browser's HTTP requests
-            'rand' => sprintf('%1.17f', rand)
+            # 'rand' => sprintf('%1.17f', rand)
+
+            "oracle.adf.view.rich.DELTAS" => "{pt1:searchResultsTable={viewportSize=3,rows=2}}",
+            "event.pt1:search_button" => '<m xmlns="http://oracle.com/richClient/comm"><k v="type"><s>action</s></k></m>'
           }
         rescue Mechanize::ResponseCodeError => e
           agent.log.error "Error submitting AJAX request: #{e.page.body}"
@@ -188,7 +198,7 @@ module ISRC
         # creates an array representation of the table:
         #   artist, title, isrc, rights holder, released, time
 
-        isrc_table = Nokogiri::HTML(isrc_search.body).css("table[id='T6400388221404841317247:ars_form:searchResultsTable'] tbody tr")
+        isrc_table = Nokogiri::HTML(isrc_search.body).css("div[id='pt1:searchResultsTable::db'] table tr")
         isrc_table.map do |m|
           columns = m.css('td')
 
