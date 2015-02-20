@@ -17,7 +17,7 @@ Gem::Specification.new do |g|
 
   g.add_dependency 'httparty'
   g.add_dependency 'nokogiri'
-  g.add_dependency 'mechanize'
+  g.add_dependency 'mechanize', '~> 2.7.3'
 
   g.add_development_dependency 'rspec'
   g.add_development_dependency 'guard'
